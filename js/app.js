@@ -12,7 +12,7 @@
 // Tap a filled-in state to peel its sticker back off.
 // ---------------------------------------------------------------------------
 import { US_VIEWBOX, US_OUTLINE, US_BORDERS, US_STATES } from "./us-geo.js";
-import { mapSceneGroup, stickerSVG } from "./scenes.js";
+import { mapSceneGroup, mapPhotoGroup, stickerSVG } from "./scenes.js";
 import { createStore, emptyData } from "./storage.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -27,6 +27,7 @@ const sortedStates = [...US_STATES].sort((a, b) => a.name.localeCompare(b.name))
 let data = emptyData();
 let drag = null;            // active pointer-drag session
 let selectedSticker = null; // tap-to-place selection
+let advCode = null;         // state whose adventure card is open
 const el = {};
 
 // --- persistence -------------------------------------------------------------
@@ -63,12 +64,16 @@ function removeSticker(code) {
 }
 
 // --- map fills ---------------------------------------------------------------
+// Draw (or redraw) a placed state's fill: its first photo if it has one,
+// otherwise the generated scenic sticker.
 function addFill(code) {
-  if (el.fills.querySelector(`.fill[data-code="${code}"]`)) return;
+  el.fills.querySelector(`.fill[data-code="${code}"]`)?.remove();
+  const s = byCode[code];
+  const photo = data.visited[code]?.photos?.[0];
   const g = document.createElementNS(SVG_NS, "g");
   g.setAttribute("class", "fill");
   g.dataset.code = code;
-  g.innerHTML = mapSceneGroup(byCode[code]);
+  g.innerHTML = photo ? mapPhotoGroup(s, photo.src) : mapSceneGroup(s);
   el.fills.appendChild(g);
   setLabelHidden(code, true);
 }
@@ -263,7 +268,7 @@ function onMapActivate(e) {
     else toast(`That's ${name(code)} — tap ${name(selectedSticker)}.`);
     return;
   }
-  if (isPlaced(code)) removeSticker(code);
+  if (isPlaced(code)) openAdventure(code); // open its photos & memory
   else { openSheet(); flashSticker(code); markTarget(code); } // tapped a place they've been
 }
 
@@ -288,6 +293,89 @@ function closeMenu() {
   el.menu.hidden = true;
   el.scrim.hidden = true;
   el.menuBtn.setAttribute("aria-expanded", "false");
+}
+
+// --- adventure card (a state's photos + date + memory) -----------------------
+// Photos are downscaled and stored on-device (data URLs) for this prototype.
+// The real version swaps `photo.src` for a Google Photos / Drive reference.
+function loadDownscaled(file, maxDim = 900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      try { resolve(c.toDataURL("image/jpeg", quality)); }
+      catch (err) { reject(err); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("bad image")); };
+    img.src = url;
+  });
+}
+
+function openAdventure(code) {
+  advCode = code;
+  const entry = (data.visited[code] ||= { date: null, note: "", photos: [] });
+  el.advTitle.textContent = byCode[code].name;
+  el.advDate.value = entry.date || "";
+  el.advNote.value = entry.note || "";
+  renderAdvPhotos();
+  el.adventure.hidden = false;
+  document.body.classList.add("modal-open");
+}
+function closeAdventure() {
+  persist({ immediate: true }); // don't lose a just-typed note/date
+  el.adventure.hidden = true;
+  document.body.classList.remove("modal-open");
+  advCode = null;
+}
+function renderAdvPhotos() {
+  const photos = data.visited[advCode]?.photos || [];
+  el.advPhotos.innerHTML = photos.length
+    ? photos.map((p, i) =>
+        `<figure class="adv-thumb"><img src="${p.src}" alt="Photo ${i + 1} of ${name(advCode)}" />` +
+        `<button class="adv-thumb-x" data-i="${i}" type="button" aria-label="Remove photo">✕</button></figure>`
+      ).join("")
+    : `<p class="adv-empty">No photos yet — add one from this adventure.</p>`;
+}
+
+async function advAddPhotos(files) {
+  const entry = data.visited[advCode];
+  if (!entry) return;
+  entry.photos ||= [];
+  let added = 0;
+  for (const f of files) {
+    if (!f.type.startsWith("image/")) continue;
+    try {
+      const src = await loadDownscaled(f);
+      entry.photos.push({ id: `p${Date.now().toString(36)}${Math.round(Math.random() * 1e4)}`, src });
+      added++;
+    } catch { toast("Couldn't read that image."); }
+  }
+  if (!added) return;
+  try {
+    await store.save(data);
+    renderAdvPhotos();
+    addFill(advCode); // the first photo now fills the state on the map
+    if (data.visited[advCode].photos.length === added) pulse(advCode);
+  } catch {
+    entry.photos.splice(entry.photos.length - added, added); // roll back what didn't fit
+    renderAdvPhotos();
+    toast("Photo storage is full on this device — cloud photos are coming.");
+  }
+}
+
+function advRemovePhoto(i) {
+  const photos = data.visited[advCode]?.photos;
+  if (!photos || !photos[i]) return;
+  photos.splice(i, 1);
+  persist({ immediate: true });
+  renderAdvPhotos();
+  addFill(advCode); // fall back to the next photo or the scenic sticker
 }
 
 // --- backup / restore --------------------------------------------------------
@@ -359,6 +447,8 @@ function wireEvents() {
   });
   window.addEventListener("resize", applyMapAlign);
   window.addEventListener("orientationchange", applyMapAlign);
+  // flush any pending debounced save if the page is being hidden/closed
+  window.addEventListener("pagehide", () => { clearTimeout(saveTimer); store.save(data).catch(() => {}); });
 
   // sheet open/close
   el.addBtn.addEventListener("click", () => (sheetIsOpen() ? closeSheet() : openSheet()));
@@ -379,10 +469,27 @@ function wireEvents() {
     el.importInput.value = "";
   });
 
+  // adventure card
+  el.advClose.addEventListener("click", closeAdventure);
+  el.advBackdrop.addEventListener("click", closeAdventure);
+  el.advDate.addEventListener("change", () => { if (advCode) { data.visited[advCode].date = el.advDate.value || null; persist(); } });
+  el.advNote.addEventListener("input", () => { if (advCode) { data.visited[advCode].note = el.advNote.value; persist(); } });
+  el.advAddPhoto.addEventListener("click", () => el.advPhotoInput.click());
+  el.advPhotoInput.addEventListener("change", () => {
+    if (el.advPhotoInput.files.length) advAddPhotos([...el.advPhotoInput.files]);
+    el.advPhotoInput.value = "";
+  });
+  el.advPhotos.addEventListener("click", (e) => {
+    const btn = e.target.closest(".adv-thumb-x");
+    if (btn) advRemovePhoto(Number(btn.dataset.i));
+  });
+  el.advRemove.addEventListener("click", () => { const c = advCode; closeAdventure(); removeSticker(c); });
+
   // Esc closes the topmost surface / cancels a selection.
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    if (!el.menu.hidden) closeMenu();
+    if (!el.adventure.hidden) closeAdventure();
+    else if (!el.menu.hidden) closeMenu();
     else if (selectedSticker) clearSelection();
     else if (sheetIsOpen()) closeSheet();
   });
@@ -405,7 +512,8 @@ async function init() {
   for (const id of ["svg", "name", "count", "countNote", "progressBar", "tray", "trayLeft",
     "trayEmpty", "search", "toast", "exportBtn", "importBtn", "importInput", "resetBtn",
     "installBtn", "menuBtn", "menu", "sheet", "sheetClose", "sheetGrip", "addBtn", "addLabel",
-    "scrim"]) {
+    "scrim", "adventure", "advBackdrop", "advClose", "advTitle", "advDate", "advPhotos",
+    "advAddPhoto", "advPhotoInput", "advNote", "advRemove"]) {
     el[id] = document.getElementById(id);
   }
   buildMap();

@@ -26,6 +26,9 @@ Tap a filled-in state to peel its sticker back off.
 - **Full-view outline map** — a clean white board with each state's bold
   outline (and abbreviation), filled by a little postcard-style sticker clipped
   to that state's real shape.
+- **Adventures per state** — tap a filled state to add photos, a first-visited
+  date, and a short memory. The first photo becomes that state's fill on the
+  map (clipped to its shape), turning the map into a collage of real trips.
 - **On-demand sticker sheet** — a bottom drawer that appears only when you're
   adding a state, keeping the map front and center.
 - **Drag-and-drop that works on touch** — built on pointer events, so it works
@@ -47,6 +50,30 @@ art, replace `stickerSVG()` / `mapSceneGroup()` in `js/scenes.js` so they point
 at a real per-state image (e.g. `<image href="art/AZ.png" clip-path="…"/>`)
 instead of the generated scene. Nothing else changes — the map, sheet, and
 drag-and-drop stay exactly the same.
+
+## Adventures & photos
+
+Tap a filled-in state to open its **adventure card** — add photos from the trip,
+a first-visited date, and a short memory. The first photo becomes the state's
+fill on the map, clipped to its shape.
+
+For this prototype, photos are downscaled and saved **on the device**
+(localStorage), which is space-limited — it's here to prove the experience. In
+the real version, photos will live in the user's **own Google account** so we
+host nothing and only store a reference:
+
+- **Google Photos** — as of March 2025 the API only allows reading a user's
+  existing library through the **Picker API** (temporary access), or reading
+  media the app itself **uploaded** (`appendonly`). So the durable path is:
+  upload the attached photo into a "Fill Your Map" album in the user's Photos,
+  store only the media-item id, and re-fetch the display URL on demand.
+- **Google Drive** (`drive.file`) — a simpler, stabler alternative: the app
+  stores photos in a folder in the user's own Drive and reads back what it
+  created.
+
+Either way, only `photo.src` in the data model changes (from a data URL to a
+reference); the map, adventure card, and everything else stay the same. Both
+require Google sign-in and (for public launch) Google's OAuth verification.
 
 ## Run it locally
 

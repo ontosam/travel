@@ -14,11 +14,15 @@
 //   AppData = {
 //     version: number,
 //     travelerName: string,
-//     visited: { [postalCode: string]: { date: string | null } }
+//     visited: { [postalCode: string]: {
+//       date: string | null,          // "first visited" (YYYY-MM-DD) or null
+//       note: string,                 // a short memory
+//       photos: { id: string, src: string }[]  // src = data URL now; a Google
+//                                              // Photos / Drive ref once cloud
+//     } }
 //   }
 //
 // `visited[code]` present  => that state is marked visited.
-// `visited[code].date`     => optional "first visited" date (YYYY-MM-DD) or null.
 // ---------------------------------------------------------------------------
 
 export const SCHEMA_VERSION = 1;
@@ -36,11 +40,17 @@ function normalize(raw) {
       for (const [code, entry] of Object.entries(raw.visited)) {
         if (typeof code !== "string") continue;
         const key = code.toUpperCase();
-        const date =
-          entry && typeof entry === "object" && typeof entry.date === "string"
-            ? entry.date
-            : null;
-        data.visited[key] = { date };
+        const e = entry && typeof entry === "object" ? entry : {};
+        const date = typeof e.date === "string" ? e.date : null;
+        const note = typeof e.note === "string" ? e.note : "";
+        // photos: [{ id, src }] — src is a data URL today; a Google Photos /
+        // Drive reference once cloud sync lands. Nothing else needs to change.
+        const photos = Array.isArray(e.photos)
+          ? e.photos
+              .filter((p) => p && typeof p.src === "string")
+              .map((p, i) => ({ id: typeof p.id === "string" ? p.id : `${key}-${i}`, src: p.src }))
+          : [];
+        data.visited[key] = { date, note, photos };
       }
     }
   }

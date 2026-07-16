@@ -234,6 +234,54 @@ body.sheet-open .add-fab { opacity: 0; pointer-events: none; transform: translat
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* --- adventure card (a state's photos + memory) ---------------------------- */
+.adventure { position: fixed; inset: 0; z-index: 1050; display: grid; place-items: center; padding: 16px; }
+.adv-backdrop { position: absolute; inset: 0; background: rgba(20, 24, 22, 0.5); }
+.adv-card {
+  position: relative;
+  width: min(460px, 100%); max-height: 88vh; overflow-y: auto;
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  padding: 20px 20px 18px;
+}
+.adv-close { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; font-size: 1.05rem; }
+.adv-title { margin: 0 40px 14px 0; font-family: Georgia, serif; font-size: 1.5rem; }
+.adv-daterow { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.adv-daterow label { font-size: 0.85rem; color: var(--ink-soft); font-weight: 600; }
+.adv-daterow input { font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+
+.adv-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.adv-thumb { position: relative; margin: 0; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--line); }
+.adv-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.adv-thumb-x {
+  position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%;
+  border: none; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 0.8rem; cursor: pointer;
+  display: grid; place-items: center; line-height: 1;
+}
+.adv-empty { grid-column: 1 / -1; margin: 4px 0; color: var(--ink-soft); font-size: 0.9rem; }
+
+.adv-add {
+  width: 100%; padding: 11px; margin-bottom: 14px;
+  border: 1.5px dashed var(--accent); border-radius: 12px;
+  background: transparent; color: var(--accent-deep); font: inherit; font-weight: 700; cursor: pointer;
+}
+.adv-add:hover { background: rgba(47, 143, 95, 0.08); }
+
+.adv-note-label { display: block; font-size: 0.85rem; color: var(--ink-soft); font-weight: 600; margin-bottom: 5px; }
+.adv-note {
+  width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg); color: var(--ink); resize: vertical; margin-bottom: 16px;
+}
+.adv-note:focus, .adv-daterow input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+.adv-remove {
+  width: 100%; padding: 10px; border: 1px solid var(--danger); border-radius: 999px;
+  background: transparent; color: var(--danger); font: inherit; font-weight: 600; cursor: pointer;
+}
+.adv-remove:hover { background: rgba(180, 85, 47, 0.08); }
+.adv-hint { margin: 10px 0 0; text-align: center; font-size: 0.72rem; color: var(--ink-soft); }
+
 /* On wide screens keep the sheet a comfortable width and the FAB reachable. */
 @media (min-width: 700px) {
   .sheet.open { height: min(42vh, 420px); }

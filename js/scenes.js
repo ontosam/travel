@@ -143,6 +143,16 @@ export function mapSceneGroup(state) {
     `<g clip-path="url(#${id})">${scene(BIOME[state.code], state.bbox)}</g>`;
 }
 
+// A real photo, cover-fit into the state's bounding box and clipped to its
+// silhouette — the state "filled" with a memory instead of a generated scene.
+export function mapPhotoGroup(state, href) {
+  const id = `pclip-${state.code}`;
+  const [x, y, w, h] = state.bbox;
+  return `<clipPath id="${id}"><path d="${state.d}"/></clipPath>` +
+    `<image href="${href}" x="${f1(x)}" y="${f1(y)}" width="${f1(w)}" height="${f1(h)}" ` +
+    `preserveAspectRatio="xMidYMid slice" clip-path="url(#${id})"/>`;
+}
+
 // Standalone sticker SVG (tray + drag ghost): white die-cut border + scene + dark edge.
 export function stickerSVG(state, cls = "sticker-svg") {
   const id = `sclip-${state.code}`;
