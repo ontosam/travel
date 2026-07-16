@@ -1,10 +1,14 @@
 // ---------------------------------------------------------------------------
-// Fill Your Map — drag a state's sticker onto its outline to fill it in.
+// Fill Your Map — a full-view US map you fill with state stickers.
 //
-// Three ways to place a sticker (all end up in the same place):
-//   • Drag it from the tray onto the matching state.
-//   • Tap the sticker, then tap its state (great on phones / keyboards).
-//   • Tap an empty state to jump to its sticker in the tray.
+// The map is the whole stage. The stickers live in a "sticker sheet" that
+// slides up from the bottom only when you're adding a place — summoned by the
+// "＋ Add a sticker" button, or by tapping the empty state you visited.
+//
+// Placing a sticker (all end up in the same place):
+//   • Drag it from the sheet onto the matching state.
+//   • Tap the sticker, then tap its state.
+//   • Tap an empty state to open the sheet at its sticker.
 // Tap a filled-in state to peel its sticker back off.
 // ---------------------------------------------------------------------------
 import { US_VIEWBOX, US_OUTLINE, US_BORDERS, US_STATES } from "./us-geo.js";
@@ -21,7 +25,7 @@ const name = (code) => byCode[code]?.name ?? code;
 const sortedStates = [...US_STATES].sort((a, b) => a.name.localeCompare(b.name));
 
 let data = emptyData();
-let drag = null;          // active pointer-drag session
+let drag = null;            // active pointer-drag session
 let selectedSticker = null; // tap-to-place selection
 const el = {};
 
@@ -41,6 +45,7 @@ function place(code, { celebrate = true } = {}) {
   data.visited[code] = { date: null };
   persist();
   addFill(code);
+  clearTarget();
   renderTray();
   renderHeader();
   pulse(code);
@@ -81,15 +86,10 @@ function renderHeader() {
   const n = placedCount();
   const pct = Math.round((n / TOTAL) * 100);
   el.count.textContent = String(n);
-  el.percent.textContent = `${pct}%`;
   el.progressBar.style.width = `${pct}%`;
   el.progressBar.parentElement.setAttribute("aria-valuenow", String(n));
   el.countNote.textContent = isPlaced("DC") ? " + DC" : "";
   if (document.activeElement !== el.name) el.name.value = data.travelerName;
-  el.milestone.textContent =
-    n === 0 ? "Drag a sticker from below onto its outline."
-    : n === TOTAL ? "🎉 The whole map is full — every state visited!"
-    : `${TOTAL - n} to go.`;
 }
 
 function renderTray() {
@@ -103,8 +103,9 @@ function renderTray() {
     item.hidden = placed || !match;
     item.classList.toggle("is-selected", code === selectedSticker);
   }
-  el.trayLeft.textContent = left ? `· ${left} left` : "";
+  el.trayLeft.textContent = left ? `· ${left} to go` : "";
   el.trayEmpty.hidden = left !== 0;
+  el.addLabel.textContent = left ? "Add a sticker" : "Every state visited 🎉";
 }
 
 function pulse(code) {
@@ -133,6 +134,7 @@ function buildMap() {
     .map((s) => `<text class="label" data-code="${s.code}" x="${s.labelX}" y="${s.labelY}">${s.code}</text>`)
     .join("");
   el.svg.setAttribute("viewBox", US_VIEWBOX);
+  applyMapAlign();
   el.svg.innerHTML =
     `<g class="states">${states}</g>` +
     `<g class="fills"></g>` +
@@ -150,6 +152,28 @@ function buildTray() {
     .join("");
 }
 
+// --- sticker sheet (bottom drawer) -------------------------------------------
+function openSheet({ clearSearch = true } = {}) {
+  if (clearSearch && el.search.value) { el.search.value = ""; renderTray(); }
+  el.sheet.classList.add("open");
+  document.body.classList.add("sheet-open");
+  el.addBtn.setAttribute("aria-expanded", "true");
+}
+function closeSheet() {
+  el.sheet.classList.remove("open");
+  document.body.classList.remove("sheet-open");
+  el.addBtn.setAttribute("aria-expanded", "false");
+  clearSelection();
+}
+const sheetIsOpen = () => el.sheet.classList.contains("open");
+
+// On a tall phone the wide map would float dead-center; anchor it to the top
+// there. On wider screens keep it centered in the available space.
+function applyMapAlign() {
+  const portrait = window.matchMedia("(orientation: portrait)").matches && window.innerWidth < 760;
+  el.svg.setAttribute("preserveAspectRatio", portrait ? "xMidYMin meet" : "xMidYMid meet");
+}
+
 // --- drag & drop (pointer events: mouse + touch) -----------------------------
 function startGhost(code, x, y) {
   const ghost = document.createElement("div");
@@ -157,7 +181,7 @@ function startGhost(code, x, y) {
   ghost.innerHTML = stickerSVG(byCode[code]);
   document.body.appendChild(ghost);
   document.body.classList.add("is-dragging");
-  el.svg.querySelector(`path.state[data-code="${code}"]`)?.classList.add("is-target");
+  markTarget(code);
   moveGhost(ghost, x, y);
   return ghost;
 }
@@ -167,16 +191,23 @@ function moveGhost(ghost, x, y) {
 function clearDrag() {
   if (drag?.ghost) drag.ghost.remove();
   document.body.classList.remove("is-dragging");
-  el.svg.querySelector("path.state.is-target")?.classList.remove("is-target");
+  clearTarget();
   drag = null;
 }
 function stateUnder(x, y) {
   return document.elementFromPoint(x, y)?.closest?.("path.state") || null;
 }
+function markTarget(code) {
+  clearTarget();
+  el.svg.querySelector(`path.state[data-code="${code}"]`)?.classList.add("is-target");
+}
+function clearTarget() {
+  el.svg.querySelector("path.state.is-target")?.classList.remove("is-target");
+}
 
 // Pointer-down starts a *potential* drag on a tray item. The move/up listeners
 // live on `window` (see wireEvents) so events keep flowing once the pointer
-// leaves the tray and travels across the map — no pointer-capture needed.
+// leaves the sheet and travels up across the map — no pointer-capture needed.
 function onTrayPointerDown(e) {
   const item = e.target.closest(".tray-item");
   if (!item || e.button > 0) return;
@@ -208,16 +239,17 @@ function onPointerUp(e) {
 // --- tap-to-place ------------------------------------------------------------
 function selectSticker(code) {
   selectedSticker = selectedSticker === code ? null : code;
-  el.svg.querySelector("path.state.is-target")?.classList.remove("is-target");
+  clearTarget();
   if (selectedSticker) {
-    el.svg.querySelector(`path.state[data-code="${code}"]`)?.classList.add("is-target");
+    markTarget(code);
     toast(`Now tap ${name(code)} on the map.`);
   }
   renderTray();
 }
 function clearSelection() {
+  if (!selectedSticker) return;
   selectedSticker = null;
-  el.svg.querySelector("path.state.is-target")?.classList.remove("is-target");
+  clearTarget();
   renderTray();
 }
 
@@ -232,19 +264,30 @@ function onMapActivate(e) {
     return;
   }
   if (isPlaced(code)) removeSticker(code);
-  else flashSticker(code); // help find its sticker in the tray
+  else { openSheet(); flashSticker(code); markTarget(code); } // tapped a place they've been
 }
 
 function flashSticker(code) {
-  el.search.value = "";
-  renderTray();
+  if (el.search.value) { el.search.value = ""; renderTray(); }
   const item = el.tray.querySelector(`.tray-item[data-code="${code}"]`);
   if (!item) return;
-  item.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  item.scrollIntoView({ block: "center", behavior: "smooth" });
   item.classList.remove("flash");
   void item.getBoundingClientRect();
   item.classList.add("flash");
-  toast(`Find the ${name(code)} sticker below.`);
+  toast(`Peel the ${name(code)} sticker and drop it on the map.`);
+}
+
+// --- overflow menu -----------------------------------------------------------
+function openMenu() {
+  el.menu.hidden = false;
+  el.scrim.hidden = false;
+  el.menuBtn.setAttribute("aria-expanded", "true");
+}
+function closeMenu() {
+  el.menu.hidden = true;
+  el.scrim.hidden = true;
+  el.menuBtn.setAttribute("aria-expanded", "false");
 }
 
 // --- backup / restore --------------------------------------------------------
@@ -299,6 +342,7 @@ function renderAll() {
 
 // --- events ------------------------------------------------------------------
 function wireEvents() {
+  // drag from the sheet; move/up on window so the drag survives leaving the sheet
   el.tray.addEventListener("pointerdown", onTrayPointerDown);
   window.addEventListener("pointermove", onPointerMove, { passive: false });
   window.addEventListener("pointerup", onPointerUp);
@@ -313,25 +357,41 @@ function wireEvents() {
   el.svg.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") onMapActivate(e);
   });
+  window.addEventListener("resize", applyMapAlign);
+  window.addEventListener("orientationchange", applyMapAlign);
 
+  // sheet open/close
+  el.addBtn.addEventListener("click", () => (sheetIsOpen() ? closeSheet() : openSheet()));
+  el.sheetClose.addEventListener("click", closeSheet);
+  el.sheetGrip.addEventListener("click", closeSheet);
   el.search.addEventListener("input", renderTray);
+
   el.name.addEventListener("input", () => { data.travelerName = el.name.value; persist(); });
 
-  el.exportBtn.addEventListener("click", exportData);
-  el.resetBtn.addEventListener("click", resetAll);
-  el.importBtn.addEventListener("click", () => el.importInput.click());
+  // overflow menu
+  el.menuBtn.addEventListener("click", () => (el.menu.hidden ? openMenu() : closeMenu()));
+  el.scrim.addEventListener("click", closeMenu);
+  el.exportBtn.addEventListener("click", () => { closeMenu(); exportData(); });
+  el.importBtn.addEventListener("click", () => { closeMenu(); el.importInput.click(); });
+  el.resetBtn.addEventListener("click", () => { closeMenu(); resetAll(); });
   el.importInput.addEventListener("change", () => {
     if (el.importInput.files[0]) importData(el.importInput.files[0]);
     el.importInput.value = "";
   });
 
-  // Esc cancels a pending tap-selection.
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && selectedSticker) clearSelection(); });
+  // Esc closes the topmost surface / cancels a selection.
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!el.menu.hidden) closeMenu();
+    else if (selectedSticker) clearSelection();
+    else if (sheetIsOpen()) closeSheet();
+  });
 
   // Install to home screen (Android/desktop Chrome).
   let deferred = null;
   window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferred = e; el.installBtn.hidden = false; });
   el.installBtn.addEventListener("click", async () => {
+    closeMenu();
     if (!deferred) return;
     deferred.prompt();
     await deferred.userChoice;
@@ -342,9 +402,10 @@ function wireEvents() {
 
 // --- boot --------------------------------------------------------------------
 async function init() {
-  for (const id of ["svg", "name", "count", "countNote", "percent", "progressBar", "milestone",
-    "tray", "trayLeft", "trayEmpty", "search", "toast", "exportBtn", "importBtn", "importInput",
-    "resetBtn", "installBtn"]) {
+  for (const id of ["svg", "name", "count", "countNote", "progressBar", "tray", "trayLeft",
+    "trayEmpty", "search", "toast", "exportBtn", "importBtn", "importInput", "resetBtn",
+    "installBtn", "menuBtn", "menu", "sheet", "sheetClose", "sheetGrip", "addBtn", "addLabel",
+    "scrim"]) {
     el[id] = document.getElementById(id);
   }
   buildMap();

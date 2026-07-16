@@ -8,24 +8,31 @@ installs to a phone's home screen like a native app.
 
 ## How it works
 
+The map is the whole stage. The stickers live in a **"sticker sheet" that
+slides up from the bottom only when you're adding a place** — summoned by the
+**"＋ Add a sticker"** button or by tapping the empty state you visited. The map
+gracefully shrinks to make room, so it's never hidden behind the sheet.
+
 Three ways to place a sticker (all end in the same place):
 
-- **Drag** a sticker from the tray onto the matching state.
+- **Drag** a sticker up from the sheet onto the matching state.
 - **Tap** the sticker, then **tap its state** — easiest on a phone.
-- **Tap an empty state** to jump to its sticker in the tray.
+- **Tap an empty state** to open the sheet at its sticker.
 
 Tap a filled-in state to peel its sticker back off.
 
 ## Features
 
-- **Outline map + scenic stickers** — a clean white board with each state's
-  bold outline (and abbreviation), filled by a little postcard-style sticker
-  clipped to that state's real shape.
+- **Full-view outline map** — a clean white board with each state's bold
+  outline (and abbreviation), filled by a little postcard-style sticker clipped
+  to that state's real shape.
+- **On-demand sticker sheet** — a bottom drawer that appears only when you're
+  adding a state, keeping the map front and center.
 - **Drag-and-drop that works on touch** — built on pointer events, so it works
   with a mouse, a finger, or the keyboard. Wrong drops are gently rejected.
-- **Live progress** — "23 / 50 · 46%" with a bar. DC is a bonus sticker that
-  doesn't count against the 50.
-- **Search** the tray to find a state fast.
+- **Live progress** — "23 / 50" with a bar. DC is a bonus sticker that doesn't
+  count against the 50.
+- **Search** the sheet to find a state fast.
 - **Personalized** — put a name on the map ("Grandpa Joe").
 - **Works offline & installs** — it's a PWA: "Add to Home Screen" gives it an
   app icon, and it keeps working without a connection.
@@ -38,7 +45,7 @@ desert, coast, plains, forest) assigned to each state by region and clipped to
 its silhouette. They're meant to be swapped for final artwork. To drop in real
 art, replace `stickerSVG()` / `mapSceneGroup()` in `js/scenes.js` so they point
 at a real per-state image (e.g. `<image href="art/AZ.png" clip-path="…"/>`)
-instead of the generated scene. Nothing else changes — the map, tray, and
+instead of the generated scene. Nothing else changes — the map, sheet, and
 drag-and-drop stay exactly the same.
 
 ## Run it locally
