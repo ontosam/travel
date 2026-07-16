@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>US States Tracker</title>
+  <meta name="description" content="A tap-to-fill map to track the US states you've visited." />
+
+  <!-- PWA / add-to-home-screen -->
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#2f6f4f" />
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="States" />
+
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <img class="brand-mark" src="./icons/icon.svg" alt="" width="44" height="44" />
+      <div class="brand-text">
+        <input id="name" class="traveler-name" type="text" maxlength="40"
+               placeholder="Add a name…" aria-label="Traveler name" autocomplete="off" />
+        <p class="tagline">States I've visited</p>
+      </div>
+      <button id="installBtn" class="install-btn" type="button" hidden>Install app</button>
+    </div>
+
+    <div class="stats" role="group" aria-label="Progress">
+      <div class="count">
+        <span id="count">0</span><span class="of">/ 50</span><span id="countNote" class="note"></span>
+      </div>
+      <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+      <div class="percent" id="percent">0%</div>
+    </div>
+    <p id="milestone" class="milestone">Tap a state to begin the map.</p>
+  </header>
+
+  <main class="app-main">
+    <div class="left-col">
+    <section class="map-section" aria-label="Map of the United States">
+      <svg id="svg" class="us-map" xmlns="http://www.w3.org/2000/svg" role="group"
+           aria-label="Clickable map of US states"></svg>
+    </section>
+
+    <aside id="detail" class="detail" hidden>
+      <button id="detailClose" class="detail-close" type="button" aria-label="Close">×</button>
+      <h2 id="detailName" class="detail-name">State</h2>
+      <button id="detailToggle" class="detail-toggle" type="button" aria-pressed="false">Mark visited</button>
+      <div id="dateRow" class="date-row" hidden>
+        <label for="dateInput">First visited</label>
+        <input id="dateInput" type="date" />
+      </div>
+    </aside>
+    </div>
+
+    <section class="list-section">
+      <div class="list-head">
+        <h2>All states</h2>
+        <input id="search" class="search" type="search" placeholder="Search states…"
+               aria-label="Search states" autocomplete="off" />
+      </div>
+      <div id="chips" class="chips" role="group" aria-label="All states"></div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <button id="resetBtn" class="foot-btn" type="button">Reset</button>
+    <button id="exportBtn" class="foot-btn" type="button">Back up</button>
+    <button id="importBtn" class="foot-btn" type="button">Restore</button>
+    <input id="importInput" type="file" accept="application/json,.json" hidden />
+    <p class="save-note">Saved on this device · cloud sync &amp; Google sign-in coming soon</p>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

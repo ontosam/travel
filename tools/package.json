@@ -1,0 +1,17 @@
+{
+  "name": "us-states-tracker-tools",
+  "private": true,
+  "type": "module",
+  "description": "Build scripts that regenerate the map geometry and icons.",
+  "scripts": {
+    "build": "node build-map.mjs && node build-icons.mjs",
+    "build:map": "node build-map.mjs",
+    "build:icons": "node build-icons.mjs"
+  },
+  "dependencies": {
+    "d3-geo": "^3.1.1",
+    "sharp": "^0.33.0",
+    "topojson-client": "^3.1.0",
+    "us-atlas": "^3.0.1"
+  }
+}
