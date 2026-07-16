@@ -1,13 +1,13 @@
 {
-  "name": "US States Tracker",
-  "short_name": "States",
-  "description": "A tap-to-fill map to track the US states you've visited.",
+  "name": "Fill Your Map",
+  "short_name": "Fill Your Map",
+  "description": "Drag a state sticker onto the map to fill in the places you've been.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#f7f0dd",
-  "theme_color": "#2f6f4f",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "categories": ["travel", "lifestyle"],
   "icons": [
     { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },

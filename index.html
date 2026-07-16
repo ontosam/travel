@@ -3,74 +3,62 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>US States Tracker</title>
-  <meta name="description" content="A tap-to-fill map to track the US states you've visited." />
+  <title>Fill Your Map</title>
+  <meta name="description" content="Drag a state sticker onto the map to fill in the places you've been." />
 
-  <!-- PWA / add-to-home-screen -->
   <link rel="manifest" href="./manifest.webmanifest" />
-  <meta name="theme-color" content="#2f6f4f" />
+  <meta name="theme-color" content="#ffffff" />
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="States" />
+  <meta name="apple-mobile-web-app-title" content="Fill Your Map" />
 
   <link rel="stylesheet" href="./css/styles.css" />
 </head>
 <body>
   <header class="app-header">
     <div class="brand">
-      <img class="brand-mark" src="./icons/icon.svg" alt="" width="44" height="44" />
+      <img class="brand-mark" src="./icons/icon.svg" alt="" width="42" height="42" />
       <div class="brand-text">
         <input id="name" class="traveler-name" type="text" maxlength="40"
-               placeholder="Add a name…" aria-label="Traveler name" autocomplete="off" />
-        <p class="tagline">States I've visited</p>
+               placeholder="Add a name…" aria-label="Map owner's name" autocomplete="off" />
+        <p class="tagline">Drag a sticker onto its state</p>
       </div>
-      <button id="installBtn" class="install-btn" type="button" hidden>Install app</button>
+      <button id="installBtn" class="install-btn" type="button" hidden>Install</button>
     </div>
 
     <div class="stats" role="group" aria-label="Progress">
-      <div class="count">
-        <span id="count">0</span><span class="of">/ 50</span><span id="countNote" class="note"></span>
-      </div>
+      <div class="count"><span id="count">0</span><span class="of">/ 50</span><span id="countNote" class="note"></span></div>
       <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="50" aria-valuenow="0">
         <div id="progressBar" class="progress-bar"></div>
       </div>
       <div class="percent" id="percent">0%</div>
     </div>
-    <p id="milestone" class="milestone">Tap a state to begin the map.</p>
+    <p id="milestone" class="milestone">Drag a sticker from below onto its outline.</p>
   </header>
 
   <main class="app-main">
-    <div class="left-col">
-    <section class="map-section" aria-label="Map of the United States">
-      <svg id="svg" class="us-map" xmlns="http://www.w3.org/2000/svg" role="group"
-           aria-label="Clickable map of US states"></svg>
-    </section>
-
-    <aside id="detail" class="detail" hidden>
-      <button id="detailClose" class="detail-close" type="button" aria-label="Close">×</button>
-      <h2 id="detailName" class="detail-name">State</h2>
-      <button id="detailToggle" class="detail-toggle" type="button" aria-pressed="false">Mark visited</button>
-      <div id="dateRow" class="date-row" hidden>
-        <label for="dateInput">First visited</label>
-        <input id="dateInput" type="date" />
-      </div>
-    </aside>
+    <div class="board">
+      <section class="map-section" aria-label="Map of the United States">
+        <svg id="svg" class="us-map" xmlns="http://www.w3.org/2000/svg" role="group"
+             aria-label="Map of US states — drop a sticker on a state to fill it"></svg>
+      </section>
     </div>
 
-    <section class="list-section">
-      <div class="list-head">
-        <h2>All states</h2>
-        <input id="search" class="search" type="search" placeholder="Search states…"
+    <section class="tray-section" aria-label="Sticker tray">
+      <div class="tray-head">
+        <h2>Stickers <span id="trayLeft" class="tray-left"></span></h2>
+        <input id="search" class="search" type="search" placeholder="Find a state…"
                aria-label="Search states" autocomplete="off" />
       </div>
-      <div id="chips" class="chips" role="group" aria-label="All states"></div>
+      <div id="tray" class="tray" role="list"></div>
+      <p id="trayEmpty" class="tray-done" hidden>🎉 Every sticker is on the map!</p>
     </section>
   </main>
 
   <footer class="app-footer">
-    <button id="resetBtn" class="foot-btn" type="button">Reset</button>
+    <button id="resetBtn" class="foot-btn" type="button">Start over</button>
     <button id="exportBtn" class="foot-btn" type="button">Back up</button>
     <button id="importBtn" class="foot-btn" type="button">Restore</button>
     <input id="importInput" type="file" accept="application/json,.json" hidden />

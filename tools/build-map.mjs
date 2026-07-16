@@ -37,8 +37,13 @@ const states = feature(us, us.objects.states).features
     const [code, name] = FIPS[f.id];
     const [cx, cy] = path.centroid(f);
     const b = path.bounds(f);
+    const r1 = (n) => Math.round(n * 10) / 10;
     const big = b[1][0] - b[0][0] > 26 && b[1][1] - b[0][1] > 20;
-    return { code, name, d: path(f), labelX: Math.round(cx * 10) / 10, labelY: Math.round(cy * 10) / 10, big };
+    return {
+      code, name, d: path(f),
+      bbox: [r1(b[0][0]), r1(b[0][1]), r1(b[1][0] - b[0][0]), r1(b[1][1] - b[0][1])],
+      labelX: r1(cx), labelY: r1(cy), big,
+    };
   })
   .sort((a, b) => a.name.localeCompare(b.name));
 
