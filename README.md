@@ -27,8 +27,10 @@ Tap a filled-in state to peel its sticker back off.
   outline (and abbreviation), filled by a little postcard-style sticker clipped
   to that state's real shape.
 - **Adventures per state** — tap a filled state to add photos, a first-visited
-  date, and a short memory. The first photo becomes that state's fill on the
-  map (clipped to its shape), turning the map into a collage of real trips.
+  date, and a short memory. The photos live in the card; the pretty sticker
+  stays on the map.
+- **Add where you are** — "Add where I am now" (in the ⋯ menu) drops the state
+  you're currently in, using the browser's location (no Google needed).
 - **On-demand sticker sheet** — a bottom drawer that appears only when you're
   adding a state, keeping the map front and center.
 - **Drag-and-drop that works on touch** — built on pointer events, so it works
@@ -45,17 +47,20 @@ Tap a filled-in state to peel its sticker back off.
 
 The stickers are **generated placeholders** — a postcard scene (mountains,
 desert, coast, plains, forest) assigned to each state by region and clipped to
-its silhouette. They're meant to be swapped for final artwork. To drop in real
-art, replace `stickerSVG()` / `mapSceneGroup()` in `js/scenes.js` so they point
-at a real per-state image (e.g. `<image href="art/AZ.png" clip-path="…"/>`)
-instead of the generated scene. Nothing else changes — the map, sheet, and
-drag-and-drop stay exactly the same.
+its silhouette. They're built to be swapped for final illustrated artwork:
+
+- Drop one image per state into [`art/`](art/) (named `CO.png`, `TX.png`, …).
+- List those codes in `ART_CODES` in [`js/scenes.js`](js/scenes.js).
+
+Listed states use the real art on the map, in the tray, and on the drag ghost;
+everything else keeps its generated scene, so art can roll in a few states at a
+time. See [`art/README.md`](art/README.md) for the file spec.
 
 ## Adventures & photos
 
 Tap a filled-in state to open its **adventure card** — add photos from the trip,
-a first-visited date, and a short memory. The first photo becomes the state's
-fill on the map, clipped to its shape.
+a first-visited date, and a short memory. The map keeps its sticker; the photos
+live here in the card.
 
 **Auto-sort by location.** Tap **"Add trip photos"** in the sticker sheet and
 pick a whole batch at once — each photo is matched to the state it was taken in

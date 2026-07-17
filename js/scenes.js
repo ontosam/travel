@@ -136,28 +136,42 @@ function scene(biome, [x, y, w, h]) {
 
 const pad = (b, p = 7) => `${f1(b[0] - p)} ${f1(b[1] - p)} ${f1(b[2] + 2 * p)} ${f1(b[3] + 2 * p)}`;
 
-// Clip + scene for drawing a placed sticker directly on the big map (global coords).
+// States that have real illustrated sticker art committed under /art (one image
+// per state — see art/README.md). Empty until the artwork lands; any code not
+// listed here falls back to the generated scenic sticker. This is the single
+// switch that turns generated placeholders into final art.
+export const ART_CODES = new Set([
+  // add codes here as art/<CODE>.png files are added, e.g. "CO", "TX",
+]);
+const ART_EXT = "png";
+const artHref = (code) => `art/${code}.${ART_EXT}`;
+
+// Fill for a placed state on the big map (global coords): real sticker art if we
+// have it (cover-fit + clipped to the silhouette), otherwise a generated scene.
 export function mapSceneGroup(state) {
   const id = `mclip-${state.code}`;
-  return `<clipPath id="${id}"><path d="${state.d}"/></clipPath>` +
-    `<g clip-path="url(#${id})">${scene(BIOME[state.code], state.bbox)}</g>`;
+  const clip = `<clipPath id="${id}"><path d="${state.d}"/></clipPath>`;
+  if (ART_CODES.has(state.code)) {
+    const [x, y, w, h] = state.bbox;
+    return clip + `<image href="${artHref(state.code)}" x="${f1(x)}" y="${f1(y)}" ` +
+      `width="${f1(w)}" height="${f1(h)}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${id})"/>`;
+  }
+  return clip + `<g clip-path="url(#${id})">${scene(BIOME[state.code], state.bbox)}</g>`;
 }
 
-// A real photo, cover-fit into the state's bounding box and clipped to its
-// silhouette — the state "filled" with a memory instead of a generated scene.
-export function mapPhotoGroup(state, href) {
-  const id = `pclip-${state.code}`;
-  const [x, y, w, h] = state.bbox;
-  return `<clipPath id="${id}"><path d="${state.d}"/></clipPath>` +
-    `<image href="${href}" x="${f1(x)}" y="${f1(y)}" width="${f1(w)}" height="${f1(h)}" ` +
-    `preserveAspectRatio="xMidYMid slice" clip-path="url(#${id})"/>`;
-}
-
-// Standalone sticker SVG (tray + drag ghost): white die-cut border + scene + dark edge.
+// Standalone sticker SVG (tray + drag ghost): real art if present, else a white
+// die-cut border + generated scene + dark edge.
 export function stickerSVG(state, cls = "sticker-svg") {
-  const id = `sclip-${state.code}`;
   const d = state.d;
-  return `<svg class="${cls}" viewBox="${pad(state.bbox)}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">` +
+  const vb = pad(state.bbox);
+  if (ART_CODES.has(state.code)) {
+    const [x, y, w, h] = state.bbox;
+    return `<svg class="${cls}" viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">` +
+      `<image href="${artHref(state.code)}" x="${f1(x)}" y="${f1(y)}" width="${f1(w)}" height="${f1(h)}" ` +
+      `preserveAspectRatio="xMidYMid meet"/></svg>`;
+  }
+  const id = `sclip-${state.code}`;
+  return `<svg class="${cls}" viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">` +
     `<path d="${d}" fill="#ffffff" stroke="#ffffff" stroke-width="7" stroke-linejoin="round"/>` +
     `<clipPath id="${id}"><path d="${d}"/></clipPath>` +
     `<g clip-path="url(#${id})">${scene(BIOME[state.code], state.bbox)}</g>` +

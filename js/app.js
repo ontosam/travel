@@ -12,7 +12,7 @@
 // Tap a filled-in state to peel its sticker back off.
 // ---------------------------------------------------------------------------
 import { US_VIEWBOX, US_OUTLINE, US_BORDERS, US_STATES } from "./us-geo.js";
-import { mapSceneGroup, mapPhotoGroup, stickerSVG } from "./scenes.js";
+import { mapSceneGroup, stickerSVG } from "./scenes.js";
 import { createStore, emptyData } from "./storage.js";
 import { readGps } from "./exif.js";
 import { stateAtLatLng } from "./geo-locate.js";
@@ -66,16 +66,14 @@ function removeSticker(code) {
 }
 
 // --- map fills ---------------------------------------------------------------
-// Draw (or redraw) a placed state's fill: its first photo if it has one,
-// otherwise the generated scenic sticker.
+// Draw (or redraw) a placed state's fill. The sticker always stays on the map
+// (it's prettier than a photo); a state's photos live in its adventure card.
 function addFill(code) {
   el.fills.querySelector(`.fill[data-code="${code}"]`)?.remove();
-  const s = byCode[code];
-  const photo = data.visited[code]?.photos?.[0];
   const g = document.createElementNS(SVG_NS, "g");
   g.setAttribute("class", "fill");
   g.dataset.code = code;
-  g.innerHTML = photo ? mapPhotoGroup(s, photo.src) : mapSceneGroup(s);
+  g.innerHTML = mapSceneGroup(byCode[code]);
   el.fills.appendChild(g);
   setLabelHidden(code, true);
 }
@@ -283,6 +281,26 @@ function flashSticker(code) {
   void item.getBoundingClientRect();
   item.classList.add("flash");
   toast(`Peel the ${name(code)} sticker and drop it on the map.`);
+}
+
+// --- "add where I am now" via the browser's location (no Google needed) ------
+function locateMe() {
+  if (!navigator.geolocation) { toast("Location isn't available on this device."); return; }
+  toast("Finding your location…");
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const code = stateAtLatLng(pos.coords.latitude, pos.coords.longitude);
+      if (!code) { toast("Hmm — that spot isn't inside a US state."); return; }
+      const already = isPlaced(code);
+      if (!already) place(code);
+      openAdventure(code);
+      toast(already
+        ? `You're in ${name(code)} — here's your adventure.`
+        : `You're in ${name(code)} 📍 — added to your map!`);
+    },
+    () => toast("Couldn't get your location. You can still add states by hand."),
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+  );
 }
 
 // --- overflow menu -----------------------------------------------------------
@@ -510,6 +528,7 @@ function wireEvents() {
   // overflow menu
   el.menuBtn.addEventListener("click", () => (el.menu.hidden ? openMenu() : closeMenu()));
   el.scrim.addEventListener("click", closeMenu);
+  el.locateBtn.addEventListener("click", () => { closeMenu(); locateMe(); });
   el.exportBtn.addEventListener("click", () => { closeMenu(); exportData(); });
   el.importBtn.addEventListener("click", () => { closeMenu(); el.importInput.click(); });
   el.resetBtn.addEventListener("click", () => { closeMenu(); resetAll(); });
@@ -562,7 +581,8 @@ async function init() {
     "trayEmpty", "search", "toast", "exportBtn", "importBtn", "importInput", "resetBtn",
     "installBtn", "menuBtn", "menu", "sheet", "sheetClose", "sheetGrip", "addBtn", "addLabel",
     "scrim", "adventure", "advBackdrop", "advClose", "advTitle", "advDate", "advPhotos",
-    "advAddPhoto", "advPhotoInput", "advNote", "advRemove", "autoFillBtn", "autoFillInput"]) {
+    "advAddPhoto", "advPhotoInput", "advNote", "advRemove", "autoFillBtn", "autoFillInput",
+    "locateBtn"]) {
     el[id] = document.getElementById(id);
   }
   buildMap();
