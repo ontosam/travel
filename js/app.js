@@ -332,6 +332,7 @@ async function onAuth(event, u) {
   if (event !== "INITIAL_SESSION" && event !== "SIGNED_IN" && event !== "SIGNED_OUT") return;
   user = u;
   updateAuthUI();
+  if (u) closeAuthModal(); // dismiss the sign-in modal once we're in
   if (u) {
     store = cloud.cloudStore(u);
     const cloudData = await store.load();
@@ -371,10 +372,37 @@ async function migrateLocalToCloud() {
 function updateAuthUI() {
   if (!cloud) { el.authBtn.hidden = true; return; }
   el.authBtn.hidden = false;
-  el.authBtn.textContent = user ? `Sign out${user.email ? " (" + user.email + ")" : ""}` : "Sign in with Google";
+  el.authBtn.textContent = user ? `Sign out${user.email ? " (" + user.email + ")" : ""}` : "Sign in to sync";
   el.saveNote.textContent = user
     ? "Synced to your account ☁️"
     : "Saved on this device · sign in to sync across devices";
+}
+
+// --- email "magic link" sign-in modal ---------------------------------------
+function openAuthModal() {
+  el.authStatus.textContent = "";
+  el.authModal.hidden = false;
+  document.body.classList.add("modal-open");
+  el.authEmail.focus();
+}
+function closeAuthModal() {
+  el.authModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+async function sendMagicLink() {
+  if (!cloud) return;
+  const email = el.authEmail.value.trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { el.authStatus.textContent = "Please enter a valid email."; return; }
+  el.authSend.disabled = true;
+  el.authStatus.textContent = "Sending…";
+  try {
+    await cloud.signInWithEmail(email, location.href.split("#")[0].split("?")[0]);
+    el.authStatus.textContent = `Check ${email} for a sign-in link ✉️  Open it on this device to finish.`;
+  } catch (err) {
+    el.authStatus.textContent = "Couldn't send the link — " + (err?.message || "try again in a minute.");
+  } finally {
+    el.authSend.disabled = false;
+  }
 }
 
 // --- adventure card (a state's photos + date + memory) -----------------------
@@ -606,11 +634,13 @@ function wireEvents() {
   el.authBtn.addEventListener("click", async () => {
     closeMenu();
     if (!cloud) return;
-    try {
-      if (user) await cloud.signOut();
-      else await cloud.signIn(location.href.split("#")[0].split("?")[0]);
-    } catch { toast("Sign-in couldn't start — check your connection."); }
+    if (user) { try { await cloud.signOut(); } catch { toast("Couldn't sign out — try again."); } }
+    else openAuthModal();
   });
+  el.authClose.addEventListener("click", closeAuthModal);
+  el.authBackdrop.addEventListener("click", closeAuthModal);
+  el.authSend.addEventListener("click", sendMagicLink);
+  el.authEmail.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMagicLink(); });
   el.locateBtn.addEventListener("click", () => { closeMenu(); locateMe(); });
   el.exportBtn.addEventListener("click", () => { closeMenu(); exportData(); });
   el.importBtn.addEventListener("click", () => { closeMenu(); el.importInput.click(); });
@@ -639,7 +669,8 @@ function wireEvents() {
   // Esc closes the topmost surface / cancels a selection.
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    if (!el.adventure.hidden) closeAdventure();
+    if (!el.authModal.hidden) closeAuthModal();
+    else if (!el.adventure.hidden) closeAdventure();
     else if (!el.menu.hidden) closeMenu();
     else if (selectedSticker) clearSelection();
     else if (sheetIsOpen()) closeSheet();
@@ -665,7 +696,8 @@ async function init() {
     "installBtn", "menuBtn", "menu", "sheet", "sheetClose", "sheetGrip", "addBtn", "addLabel",
     "scrim", "adventure", "advBackdrop", "advClose", "advTitle", "advDate", "advPhotos",
     "advAddPhoto", "advPhotoInput", "advNote", "advRemove", "autoFillBtn", "autoFillInput",
-    "locateBtn", "authBtn", "saveNote"]) {
+    "locateBtn", "authBtn", "saveNote", "authModal", "authBackdrop", "authClose",
+    "authEmail", "authSend", "authStatus"]) {
     el[id] = document.getElementById(id);
   }
   buildMap();

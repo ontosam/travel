@@ -21,7 +21,13 @@ export function onAuthChange(cb) {
   sb.auth.onAuthStateChange((event, session) => cb(event, session?.user ?? null));
 }
 
-export async function signIn(redirectTo) {
+// Email "magic link": Supabase emails a one-tap sign-in link (no password).
+export async function signInWithEmail(email, redirectTo) {
+  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+  if (error) throw error;
+}
+// Google sign-in — kept for later; enable the Google provider in Supabase to use.
+export async function signInWithGoogle(redirectTo) {
   const { error } = await sb.auth.signInWithOAuth({ provider: "google", options: { redirectTo } });
   if (error) throw error;
 }
