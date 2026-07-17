@@ -53,6 +53,11 @@
       <button id="sheetClose" class="icon-btn" type="button" aria-label="Close">✕</button>
     </div>
     <div class="sheet-body">
+      <button id="autoFillBtn" class="auto-fill" type="button">
+        <span class="auto-fill-icon" aria-hidden="true">📷</span> Add trip photos — I'll sort them onto the map
+      </button>
+      <input id="autoFillInput" type="file" accept="image/*" multiple hidden />
+      <p class="tray-or">or place a sticker yourself</p>
       <div id="tray" class="tray" role="list"></div>
       <p id="trayEmpty" class="tray-done" hidden>🎉 Every sticker is on the map!</p>
     </div>

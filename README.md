@@ -57,6 +57,13 @@ Tap a filled-in state to open its **adventure card** — add photos from the tri
 a first-visited date, and a short memory. The first photo becomes the state's
 fill on the map, clipped to its shape.
 
+**Auto-sort by location.** Tap **"Add trip photos"** in the sticker sheet and
+pick a whole batch at once — each photo is matched to the state it was taken in
+(by reading its GPS metadata with `js/exif.js` and testing the coordinate
+against the state outlines in `js/geo-locate.js`) and lands there automatically.
+Photos with no location info are counted so you can place them by hand. All of
+this runs on-device — no photo leaves the browser.
+
 For this prototype, photos are downscaled and saved **on the device**
 (localStorage), which is space-limited — it's here to prove the experience. In
 the real version, photos will live in the user's **own Google account** so we
@@ -114,10 +121,11 @@ nothing else changes.
 
 ## Regenerating the map & stickers
 
-The map geometry (`js/us-geo.js`) and icons (`icons/`) are generated from the
-public-domain [us-atlas](https://github.com/topojson/us-atlas) dataset (US
-Census Bureau). See [`tools/`](tools/) to rebuild them. Sticker scenes are
-generated at runtime by `js/scenes.js`.
+The map geometry (`js/us-geo.js`), the geographic outlines used for GPS→state
+photo sorting (`js/us-latlng.js`), and the icons (`icons/`) are generated from
+the public-domain [us-atlas](https://github.com/topojson/us-atlas) dataset (US
+Census Bureau). See [`tools/`](tools/) to rebuild them (`npm run build`).
+Sticker scenes are generated at runtime by `js/scenes.js`.
 
 ## Credits
 

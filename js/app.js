@@ -14,6 +14,8 @@
 import { US_VIEWBOX, US_OUTLINE, US_BORDERS, US_STATES } from "./us-geo.js";
 import { mapSceneGroup, mapPhotoGroup, stickerSVG } from "./scenes.js";
 import { createStore, emptyData } from "./storage.js";
+import { readGps } from "./exif.js";
+import { stateAtLatLng } from "./geo-locate.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const store = createStore();
@@ -378,6 +380,48 @@ function advRemovePhoto(i) {
   addFill(advCode); // fall back to the next photo or the scenic sticker
 }
 
+// --- auto-sort a batch of photos onto the map by their GPS location ----------
+async function autoSortPhotos(files) {
+  const imgs = [...files].filter((f) => f.type.startsWith("image/"));
+  if (!imgs.length) return;
+  const label = el.autoFillBtn.textContent;
+  el.autoFillBtn.disabled = true;
+  el.autoFillBtn.textContent = `Sorting ${imgs.length} photo${imgs.length !== 1 ? "s" : ""}…`;
+
+  let sorted = 0, noLocation = 0;
+  const touched = new Set();
+  for (const f of imgs) {
+    let code = null;
+    try {
+      const gps = readGps(await f.arrayBuffer());
+      if (gps) code = stateAtLatLng(gps.lat, gps.lng);
+    } catch { /* unreadable — treat as no location */ }
+    if (!code) { noLocation++; continue; }
+    try {
+      const src = await loadDownscaled(f);
+      const entry = (data.visited[code] ||= { date: null, note: "", photos: [] });
+      entry.photos ||= [];
+      entry.photos.push({ id: `p${Date.now().toString(36)}${Math.round(Math.random() * 1e4)}`, src });
+      sorted++;
+      touched.add(code);
+    } catch { /* skip images we can't process */ }
+  }
+
+  el.autoFillBtn.disabled = false;
+  el.autoFillBtn.textContent = label;
+
+  let saveErr = false;
+  try { await store.save(data); } catch { saveErr = true; }
+  renderAll();
+  if (touched.size) { closeSheet(); touched.forEach(pulse); }
+
+  const parts = [];
+  if (sorted) parts.push(`Sorted ${sorted} photo${sorted !== 1 ? "s" : ""} onto ${touched.size} state${touched.size !== 1 ? "s" : ""} 🎉`);
+  if (noLocation) parts.push(`${noLocation} had no location — open a state to add ${noLocation !== 1 ? "them" : "it"} by hand.`);
+  if (saveErr) parts.push("storage is full on this device (cloud photos coming)");
+  toast(parts.join(" · ") || "Those photos had no location saved.");
+}
+
 // --- backup / restore --------------------------------------------------------
 function exportData() {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -455,6 +499,11 @@ function wireEvents() {
   el.sheetClose.addEventListener("click", closeSheet);
   el.sheetGrip.addEventListener("click", closeSheet);
   el.search.addEventListener("input", renderTray);
+  el.autoFillBtn.addEventListener("click", () => el.autoFillInput.click());
+  el.autoFillInput.addEventListener("change", () => {
+    if (el.autoFillInput.files.length) autoSortPhotos([...el.autoFillInput.files]);
+    el.autoFillInput.value = "";
+  });
 
   el.name.addEventListener("input", () => { data.travelerName = el.name.value; persist(); });
 
@@ -513,7 +562,7 @@ async function init() {
     "trayEmpty", "search", "toast", "exportBtn", "importBtn", "importInput", "resetBtn",
     "installBtn", "menuBtn", "menu", "sheet", "sheetClose", "sheetGrip", "addBtn", "addLabel",
     "scrim", "adventure", "advBackdrop", "advClose", "advTitle", "advDate", "advPhotos",
-    "advAddPhoto", "advPhotoInput", "advNote", "advRemove"]) {
+    "advAddPhoto", "advPhotoInput", "advNote", "advRemove", "autoFillBtn", "autoFillInput"]) {
     el[id] = document.getElementById(id);
   }
   buildMap();
