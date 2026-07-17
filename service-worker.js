@@ -1,6 +1,6 @@
 // Offline app shell for the US States Tracker.
 // Bump CACHE when you change any cached file to push the update to clients.
-const CACHE = "fill-your-map-v4";
+const CACHE = "fill-your-map-v5";
 const ASSETS = [
   "./",
   "./index.html",
@@ -12,6 +12,8 @@ const ASSETS = [
   "./js/us-latlng.js",
   "./js/geo-locate.js",
   "./js/exif.js",
+  "./js/supabase-config.js",
+  "./js/cloud.js",
   "./manifest.webmanifest",
   "./icons/icon.svg",
   "./icons/icon-192.png",

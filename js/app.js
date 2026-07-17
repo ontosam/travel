@@ -18,7 +18,9 @@ import { readGps } from "./exif.js";
 import { stateAtLatLng } from "./geo-locate.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const store = createStore();
+let store = createStore(); // LocalStore now; becomes a CloudStore when signed in
+let cloud = null;          // the Supabase module, loaded only when configured
+let user = null;           // the signed-in Supabase user, or null
 
 const STATES_50 = US_STATES.filter((s) => s.code !== "DC");
 const TOTAL = STATES_50.length; // 50
@@ -45,7 +47,7 @@ const placedCount = () => STATES_50.reduce((n, s) => n + (isPlaced(s.code) ? 1 :
 // --- placing / removing ------------------------------------------------------
 function place(code, { celebrate = true } = {}) {
   if (!byCode[code] || isPlaced(code)) return;
-  data.visited[code] = { date: null };
+  data.visited[code] = { date: null, note: "", photos: [] };
   persist();
   addFill(code);
   clearTarget();
@@ -315,9 +317,69 @@ function closeMenu() {
   el.menuBtn.setAttribute("aria-expanded", "false");
 }
 
+// --- cloud sign-in + sync (Supabase; only active when configured) ------------
+async function setupCloud() {
+  let cfg;
+  try { cfg = (await import("./supabase-config.js")).supabaseConfig; } catch { return; }
+  if (!cfg || !cfg.url || !cfg.anonKey || cfg.url.includes("YOUR-PROJECT") || cfg.anonKey.includes("YOUR-ANON")) return;
+  try { cloud = await import("./cloud.js"); } catch (err) { console.warn("Cloud module failed to load", err); return; }
+  cloud.initCloud(cfg);
+  updateAuthUI();
+  cloud.onAuthChange(onAuth);
+}
+
+async function onAuth(event, u) {
+  if (event !== "INITIAL_SESSION" && event !== "SIGNED_IN" && event !== "SIGNED_OUT") return;
+  user = u;
+  updateAuthUI();
+  if (u) {
+    store = cloud.cloudStore(u);
+    const cloudData = await store.load();
+    const cloudEmpty = Object.keys(cloudData.visited).length === 0;
+    if (event === "SIGNED_IN" && cloudEmpty && Object.keys(data.visited).length > 0) {
+      await migrateLocalToCloud(); // first sign-in: keep the on-device map
+      toast("Synced your map to your account ☁️");
+    } else {
+      data = cloudData;
+      if (event === "SIGNED_IN") toast("Signed in — your map is synced ☁️");
+    }
+    renderAll();
+  } else if (event === "SIGNED_OUT") {
+    store = createStore();
+    data = await store.load();
+    renderAll();
+    toast("Signed out — back to this device.");
+  }
+}
+
+// Upload any on-device (data-URL) photos, then push the local map up.
+async function migrateLocalToCloud() {
+  for (const e of Object.values(data.visited)) {
+    for (const p of e.photos || []) {
+      if (p.src && p.src.startsWith("data:") && !p.path) {
+        try {
+          const blob = await (await fetch(p.src)).blob();
+          p.path = await cloud.uploadPhoto(user.id, p.id, blob);
+          p.src = await cloud.signedUrl(p.path);
+        } catch { /* skip; save keeps only path-backed photos */ }
+      }
+    }
+  }
+  await store.save(data);
+}
+
+function updateAuthUI() {
+  if (!cloud) { el.authBtn.hidden = true; return; }
+  el.authBtn.hidden = false;
+  el.authBtn.textContent = user ? `Sign out${user.email ? " (" + user.email + ")" : ""}` : "Sign in with Google";
+  el.saveNote.textContent = user
+    ? "Synced to your account ☁️"
+    : "Saved on this device · sign in to sync across devices";
+}
+
 // --- adventure card (a state's photos + date + memory) -----------------------
-// Photos are downscaled and stored on-device (data URLs) for this prototype.
-// The real version swaps `photo.src` for a Google Photos / Drive reference.
+// Photos are downscaled, then either kept on-device (data URL) or, when signed
+// in, uploaded to the user's private cloud storage with only a reference kept.
 function loadDownscaled(file, maxDim = 900, quality = 0.72) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -336,6 +398,22 @@ function loadDownscaled(file, maxDim = 900, quality = 0.72) {
     img.src = url;
   });
 }
+
+// Store a photo file and return a photo object. Local: { id, src:dataURL }.
+// Signed in: upload the bytes to cloud storage → { id, path, src:signedURL }.
+async function putPhoto(id, file) {
+  const dataUrl = await loadDownscaled(file);
+  if (cloud && user) {
+    const blob = await (await fetch(dataUrl)).blob();
+    const path = await cloud.uploadPhoto(user.id, id, blob);
+    return { id, path, src: await cloud.signedUrl(path) };
+  }
+  return { id, src: dataUrl };
+}
+async function dropPhoto(photo) {
+  if (cloud && user && photo?.path) await cloud.deletePhoto(photo.path);
+}
+const newPhotoId = () => `p${Date.now().toString(36)}${Math.round(Math.random() * 1e4)}`;
 
 function openAdventure(code) {
   advCode = code;
@@ -371,31 +449,29 @@ async function advAddPhotos(files) {
   for (const f of files) {
     if (!f.type.startsWith("image/")) continue;
     try {
-      const src = await loadDownscaled(f);
-      entry.photos.push({ id: `p${Date.now().toString(36)}${Math.round(Math.random() * 1e4)}`, src });
+      entry.photos.push(await putPhoto(newPhotoId(), f));
       added++;
-    } catch { toast("Couldn't read that image."); }
+    } catch { toast("Couldn't add that photo."); }
   }
   if (!added) return;
   try {
     await store.save(data);
     renderAdvPhotos();
-    addFill(advCode); // the first photo now fills the state on the map
-    if (data.visited[advCode].photos.length === added) pulse(advCode);
   } catch {
-    entry.photos.splice(entry.photos.length - added, added); // roll back what didn't fit
+    const dropped = entry.photos.splice(entry.photos.length - added, added); // roll back what didn't save
+    for (const p of dropped) dropPhoto(p);
     renderAdvPhotos();
-    toast("Photo storage is full on this device — cloud photos are coming.");
+    toast(cloud && user ? "Couldn't save those photos — try again." : "Photo storage is full on this device.");
   }
 }
 
-function advRemovePhoto(i) {
+async function advRemovePhoto(i) {
   const photos = data.visited[advCode]?.photos;
   if (!photos || !photos[i]) return;
-  photos.splice(i, 1);
+  const [removed] = photos.splice(i, 1);
+  dropPhoto(removed);
   persist({ immediate: true });
   renderAdvPhotos();
-  addFill(advCode); // fall back to the next photo or the scenic sticker
 }
 
 // --- auto-sort a batch of photos onto the map by their GPS location ----------
@@ -416,10 +492,9 @@ async function autoSortPhotos(files) {
     } catch { /* unreadable — treat as no location */ }
     if (!code) { noLocation++; continue; }
     try {
-      const src = await loadDownscaled(f);
       const entry = (data.visited[code] ||= { date: null, note: "", photos: [] });
       entry.photos ||= [];
-      entry.photos.push({ id: `p${Date.now().toString(36)}${Math.round(Math.random() * 1e4)}`, src });
+      entry.photos.push(await putPhoto(newPhotoId(), f));
       sorted++;
       touched.add(code);
     } catch { /* skip images we can't process */ }
@@ -528,6 +603,14 @@ function wireEvents() {
   // overflow menu
   el.menuBtn.addEventListener("click", () => (el.menu.hidden ? openMenu() : closeMenu()));
   el.scrim.addEventListener("click", closeMenu);
+  el.authBtn.addEventListener("click", async () => {
+    closeMenu();
+    if (!cloud) return;
+    try {
+      if (user) await cloud.signOut();
+      else await cloud.signIn(location.href.split("#")[0].split("?")[0]);
+    } catch { toast("Sign-in couldn't start — check your connection."); }
+  });
   el.locateBtn.addEventListener("click", () => { closeMenu(); locateMe(); });
   el.exportBtn.addEventListener("click", () => { closeMenu(); exportData(); });
   el.importBtn.addEventListener("click", () => { closeMenu(); el.importInput.click(); });
@@ -582,7 +665,7 @@ async function init() {
     "installBtn", "menuBtn", "menu", "sheet", "sheetClose", "sheetGrip", "addBtn", "addLabel",
     "scrim", "adventure", "advBackdrop", "advClose", "advTitle", "advDate", "advPhotos",
     "advAddPhoto", "advPhotoInput", "advNote", "advRemove", "autoFillBtn", "autoFillInput",
-    "locateBtn"]) {
+    "locateBtn", "authBtn", "saveNote"]) {
     el[id] = document.getElementById(id);
   }
   buildMap();
@@ -590,6 +673,7 @@ async function init() {
   wireEvents();
   data = await store.load();
   renderAll();
+  setupCloud(); // wires Google sign-in + sync if supabase-config.js is filled in
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(() => {});
 }
 

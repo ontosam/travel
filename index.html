@@ -64,13 +64,14 @@
   </section>
 
   <div id="menu" class="menu" role="menu" hidden>
+    <button id="authBtn" class="menu-item auth" type="button" role="menuitem" hidden>Sign in with Google</button>
     <button id="locateBtn" class="menu-item" type="button" role="menuitem">📍 Add where I am now</button>
     <button id="installBtn" class="menu-item" type="button" role="menuitem" hidden>Install app</button>
     <button id="exportBtn" class="menu-item" type="button" role="menuitem">Back up</button>
     <button id="importBtn" class="menu-item" type="button" role="menuitem">Restore</button>
     <button id="resetBtn" class="menu-item danger" type="button" role="menuitem">Start over</button>
     <input id="importInput" type="file" accept="application/json,.json" hidden />
-    <p class="save-note">Saved on this device · cloud sync &amp; Google sign-in coming soon</p>
+    <p id="saveNote" class="save-note">Saved on this device · cloud sync coming soon</p>
   </div>
 
   <div id="scrim" class="scrim" hidden></div>

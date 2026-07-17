@@ -107,22 +107,25 @@ Fully static — publish the repo root to any static host:
 
 ## How data is stored
 
-Everything lives in the browser's `localStorage`, behind a small storage module
-(`js/storage.js`). No account, no server. Use **Back up** to save a copy.
+Signed out, everything lives in the browser's `localStorage` behind a small
+storage module (`js/storage.js`) — no account, no server. Use **Back up** to
+save a copy.
 
-## Roadmap: Google sign-in + cloud sync
+## Google sign-in + cloud sync (Supabase)
 
-Persistence goes through one interface so this is a contained change:
+Built and ready — it's **dormant until configured**, so the app runs on-device
+until you add real keys. Persistence goes through one interface:
 
 ```js
 interface Store { load(): Promise<AppData>; save(data: AppData): Promise<void>; }
 ```
 
-To sync across devices with Google sign-in (recommended: **Firebase**): create
-a project, enable **Authentication → Google** and **Firestore**, add a
-`FirestoreStore` implementing that interface keyed by the user's `uid`, and swap
-the one line in `createStore()`. The UI never touches storage directly, so
-nothing else changes.
+`js/cloud.js` provides a `CloudStore` (Postgres, per-user row) + photo upload to
+Supabase Storage + Google sign-in, selected automatically when a user is signed
+in. Fill in [`js/supabase-config.js`](js/supabase-config.js) with your project's
+URL + anon key to turn it on — full one-time setup (free, no credit card) is in
+[`docs/supabase-setup.md`](docs/supabase-setup.md). See the design in
+[`docs/cloud-design.md`](docs/cloud-design.md).
 
 ## Regenerating the map & stickers
 

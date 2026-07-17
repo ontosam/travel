@@ -233,6 +233,7 @@ body.sheet-open .add-fab { opacity: 0; pointer-events: none; transform: translat
   font: inherit; padding: 10px 12px; border-radius: 8px; cursor: pointer;
 }
 .menu-item:hover { background: var(--line); }
+.menu-item.auth { color: var(--accent-deep); font-weight: 700; }
 .menu-item.danger { color: var(--danger); }
 .menu .save-note { margin: 8px 12px 4px; font-size: 0.72rem; color: var(--ink-soft); }
 
