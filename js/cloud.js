@@ -10,7 +10,15 @@ let sb = null;
 
 export function initCloud(config) {
   sb = createClient(config.url, config.anonKey, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      // implicit flow returns the session in the URL directly, so a magic link
+      // works even when the email app opens it in a different browser/tab than
+      // the one that requested it (no PKCE code-verifier needed on this device).
+      flowType: "implicit",
+    },
   });
   return sb;
 }
